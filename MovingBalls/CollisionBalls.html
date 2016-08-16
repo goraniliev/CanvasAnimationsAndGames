@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Collision Balls</title>
+    <script type="text/javascript">
+        var context;
+        var LEFT_PADDING = 10, TOP_PADDING = 10, WIDTH = 1600, HEIGHT = 800;
+        function init() {
+            context = document.getElementById("canvas").getContext("2d");
+
+            setInterval(draw, 15);
+        }
+
+        var VELOCITY = 2;
+
+        var red = {
+            x: 100,
+            y: 100,
+            r: 30,
+            dx: VELOCITY,
+            dy: VELOCITY,
+            color: 'red',
+            font: '20px Arial',
+            hits: 0
+        };
+
+        var green = {
+            x: 1000,
+            y: 600,
+            r: 30,
+            dx: VELOCITY,
+            dy: -VELOCITY,
+            color: 'green',
+            font: '20px Arial',
+            hits: 0
+        };
+
+        var blue = {
+            x: 200,
+            y: 200,
+            r: 30,
+            dx: VELOCITY,
+            dy: VELOCITY,
+            color: 'blue',
+            font: '20px Arial',
+            hits: 0
+        };
+
+        function dist(a, b) {
+            return Math.sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
+        }
+
+        function intersect(a, b) {
+            return dist(a, b) <= a.r + b.r;
+        }
+
+        function circle(c) {
+            context.fillStyle = c.color;
+            context.beginPath();
+            context.arc(c.x, c.y, c.r, 0, 2 * Math.PI, true);
+            context.closePath();
+            context.fill();
+
+            context.beginPath();
+            context.fillStyle = "black";
+            context.font = c.font;
+            context.fillText(c.hits, c.x - 5, c.y + 3);
+            context.closePath();
+            context.fill();
+        }
+
+        function move(circle) {
+            var nextX = circle.x + circle.dy, nextY = circle.y + circle.dy;
+            if (nextX + circle.r >= WIDTH + LEFT_PADDING || nextX < LEFT_PADDING + circle.r) {
+                circle.dx = -circle.dx;
+            }
+            if (nextY + circle.r > TOP_PADDING + HEIGHT || nextY < TOP_PADDING + circle.r) {
+                circle.dy = -circle.dy;
+            }
+
+            circle.x += circle.dx;
+            circle.y += circle.dy;
+
+        }
+
+        function moveBalls(balls_list) {
+            for (var b in balls_list) {
+                move(balls_list[b]);
+            }
+
+            for (var i = 0; i < balls_list.length; i++) {
+                for (var j = i + 1; j < balls_list.length; j++) {
+                    if (intersect(balls_list[i], balls_list[j])) {
+                        collision(balls_list[i], balls_list[j]);
+                    }
+                }
+            }
+
+        }
+
+        function collision(a, b) {
+            var adx = a.dx, bdx = b.dx, ady = a.dy, bdy = b.dy;
+            if (a.dx * b.dx < 0) {
+                adx = -a.dx;
+                bdx = -b.dx;
+            }
+            if (a.dy * b.dy < 0) {
+                ady = -a.dy;
+                bdy = -b.dy;
+            }
+            a.dx = adx;
+            a.dy = ady;
+            b.dx = bdx;
+            b.dy = bdy;
+            a.hits++;
+            b.hits++;
+        }
+
+        function drawRect() {
+            context.fillStyle = 'black';
+            context.strokeRect(LEFT_PADDING, TOP_PADDING, WIDTH, HEIGHT);
+        }
+
+        function clear() {
+            context.clearRect(0, 0, document.getElementById("canvas").getAttribute("width"), document.getElementById("canvas").getAttribute("height"));
+        }
+
+        var balls = [red, green, blue];
+
+        function draw() {
+            clear();
+            drawRect();
+            for (var ball in balls) {
+                circle(balls[ball]);
+            }
+            moveBalls(balls);
+        }
+
+        window.addEventListener("load", init, true);
+    </script>
+</head>
+<body>
+<div id="wrapper">
+    <canvas id="canvas" width="2000" height="1000"></canvas>
+</div>
+</body>
+</html>
