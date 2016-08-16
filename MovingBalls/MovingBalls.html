@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Moving Balls</title>
+    <script>
+        var WIDTH = 1000, HEIGHT = 500;
+        var context;
+
+        function rectangle(x, y, w, h) {
+            context.fillStyle = '#000';
+            context.strokeRect(x, y, w, h);
+        }
+
+        function init() {
+            context = document.getElementById('canvas').getContext('2d');
+            context.clearRect(0, 0, WIDTH, HEIGHT);
+            rectangle(10, 10, WIDTH, HEIGHT);
+            setInterval(draw, 15);
+        }
+
+        window.addEventListener('load', init, true);
+
+        function circle(obj) {
+            context.fillStyle = obj.color;
+            context.beginPath();
+            context.arc(obj.x, obj.y, obj.r, 0, 2 * Math.PI, true);
+            context.closePath();
+            context.fill();
+        }
+
+        var green = {
+            x: 50,
+            y: 50,
+            r: 10,
+            color: '#090',
+            dx: 2,
+            dy: 5
+        };
+        var red = {
+            x: 200,
+            y: 200,
+            r: 30,
+            color: '#900',
+            dx: 2,
+            dy: 2
+        };
+
+        function move(obj) {
+            var nextobjX = obj.x + obj.dx, nextobjY = obj.y + obj.dy;
+            if(nextobjX + obj.r > WIDTH || nextobjX < obj.r) {
+                obj.dx = -obj.dx;
+            }
+            if(nextobjY + obj.r > HEIGHT || nextobjY < obj.r) {
+                obj.dy = -obj.dy;
+            }
+            obj.x += obj.dx;
+            obj.y += obj.dy;
+        }
+
+        function dist(c1, c2) {
+            return Math.sqrt((c1.x - c2.x) * (c1.x - c2.x) + (c1.y - c2.y) * (c1.y - c2.y));
+        }
+
+        function intersect(c1, c2) {
+            return dist(c1, c2) < c1.r + c2.r;
+        }
+        
+        function draw() {
+            context.clearRect(0, 0, WIDTH, HEIGHT);
+            rectangle(10, 10, WIDTH, HEIGHT);
+
+            move(green);
+            move(red);
+
+            if(intersect(green, red)) {
+                green.color = red.color = '#990';
+            }
+
+            circle(green);
+            circle(red);
+        }
+
+    </script>
+</head>
+<body>
+<div id=" wrapper ">
+    <canvas id="canvas" width="2000" height="1000"></canvas>
+</div>
+</body>
+</html>
