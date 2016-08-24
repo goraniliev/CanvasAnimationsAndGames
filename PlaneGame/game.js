@@ -7,7 +7,6 @@ $(document).ready(function() {
     var canvasHeight = canvas.height();
 
     // Game settings
-    var EXPLOSION_TIME = 2500;
     var explosionRadius = 180;
 
     var playGame;
@@ -17,18 +16,17 @@ $(document).ready(function() {
     var maxBombsOnScreen = 2;
     var myBombs = 0;
     var maxSide = 15, minSide = 5;
-    //var fuels; // Array that holds all the fuel items
     var numAsteroids;
     var numFuels;
     var player;
     var score;
     var scoreTimeout;
-    //var fuelWidth = 10;
 
     // Keyboard keycodes using descriptive variables (enumeration)
     var arrowUp = 38;
     var arrowRight = 39;
     var arrowDown = 40;
+    var enter = 13;
 
     // Game UI
     var ui = $("#gameUI");
@@ -41,9 +39,46 @@ $(document).ready(function() {
     var soundThrust = $("#gameSoundThrust").get(0);
     var soundDeath = $("#gameSoundDeath").get(0);
 
+    //Common
+    function circle(x, y, r, color) {
+        context.beginPath();
+        context.fillStyle = color;
+        context.arc(x, y, r, 0, 2 * Math.PI, true);
+        context.fill();
+        context.closePath();
+    }
+
+    function euclidDist(x1, y1, x2, y2) {
+        return Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
+    }
+
+    function dist(player, asteroid) {
+        return euclidDist(player.x, player.y, asteroid.x, asteroid.y);
+    }
+
+    function intersect(player, asteroid) {
+        return dist(player, asteroid) < explosionRadius + asteroid.radius;
+    }
+
     // Asteroid class
     var Asteroid = function(x, y, radius, vX) {
         this.x = x; this.y = y; this.radius = radius; this.vX = vX;
+    }
+
+    function changeAsteroid(a){
+        a.radius = 5+(Math.random()*10);
+        a.x = canvasWidth + a.radius;
+        a.y = Math.floor(Math.random() * canvasHeight);
+        a.vX = - 5 -(Math.random() * 5);
+    }
+
+    function randomAsteroid() {
+        var radius = 5+(Math.random()*10);
+        var x = Math.floor(Math.random()*canvasWidth)+canvasWidth+radius;
+        var y = Math.floor(Math.random()*canvasHeight);
+        var vX = -5-(Math.random()*5);
+
+        return new Asteroid(x, y, radius, vX);
     }
 
     var Bomb = function(x, y, side, vx, vy) {
@@ -88,18 +123,10 @@ $(document).ready(function() {
         var side = randInt(minSide, maxSide);
         var y = randInt(side, canvasHeight - side);
         var x = randInt(canvasWidth, canvasWidth + 50);
-        var vx = randInt(5, 8);
-        var vy = randInt(3, 5);
+        var vx = randInt(4, 7);
+        var vy = randInt(2, 4);
         return new Bomb(x, y, side, vx, vy);
     }
-
-
-    // Fuel class
-    //var Fuel = function(x, y, fuelWidth, vX, vY) {
-    //    this.x = x; this.y = y; this.fuelWidth = fuelWidth; this.vX = vX; this.vY = vY;
-    //    this.maxVrtMoves = 5 + Math.floor(Math.random() * 10);
-    //    this.vrtMoves = 0;
-    //}
 
     // Player class
     var Player = function(x, y) {
@@ -112,45 +139,65 @@ $(document).ready(function() {
         this.moveRight = false; this.moveUp = false; this.moveDown = false;
         this.flameLength = 20;
         this.lifeCount = 3;
-        this.explosionDuration = 1000000;
         this.explosion = false;
-    }
-    function colision() {
-        var leftBombs = Array();
-        for(var b in bombs) {
-            if(Math.abs(bombs[b].x - player.x) < bombs[b].side / 2 + player.flameLength / 2 &&
-                Math.abs(bombs[b].y - player.y) < bombs[b].side / 2 + player.halfHeight) {
-                myBombs++;
-                uiBombs.html(myBombs);
+
+        this.colisionWithBombs = function() {
+            var leftBombs = new Array();
+            for(var b in bombs) {
+                if(Math.abs(bombs[b].x - this.x) < bombs[b].side / 2 + this.flameLength / 2 &&
+                    Math.abs(bombs[b].y - this.y) < bombs[b].side / 2 + this.halfHeight) {
+                    myBombs++;
+                    uiBombs.html(myBombs);
+                }
+                else {
+                    leftBombs.push(bombs[b]);
+                }
             }
-            else {
-                leftBombs.push(bombs[b]);
-            }
+            bombs = leftBombs;
         }
-        bombs = leftBombs;
+
+        this.draw = function() {
+            if(this.explosion) {
+                circle(this.x, this.y, explosionRadius, 'orange');
+                setTimeout(finishExplosion, 250);
+            }
+
+            // Draw this
+            if (this.moveRight) {
+                context.save();
+                context.translate(this.x, this.y);
+
+                if (this.flameLength == 20) {
+                    this.flameLength = 15;
+                } else {
+                    this.flameLength = 20;
+                }
+
+                context.fillStyle = "orange";
+                context.beginPath();
+                context.moveTo(-12-this.flameLength, 0);
+                context.lineTo(0, -5);
+                context.lineTo(0, 5);
+                context.closePath();
+                context.fill();
+
+                context.restore();
+            }
+
+            context.fillStyle = "rgb(255, 0, 0)";
+            context.beginPath();
+            context.moveTo(this.x+this.halfWidth, this.y);
+            context.lineTo(this.x-this.halfWidth, this.y-this.halfHeight);
+            context.lineTo(this.x-this.halfWidth, this.y+this.halfHeight);
+            context.closePath();
+            context.fill();
+
+        }
     }
 
-    function changeAsteroid(a){
-        a.radius = 5+(Math.random()*10);
-        a.x = canvasWidth + a.radius;
-        a.y = Math.floor(Math.random() * canvasHeight);
-        a.vX = - 5 -(Math.random() * 5);
-    }
-
-    function circle(x, y, r, color) {
-        context.beginPath();
-        context.fillStyle = color;
-        context.arc(x, y, r, 0, 2 * Math.PI, true);
-        context.fill();
-        context.closePath();
-    }
-
-    function dist(player, asteroid) {
-        return Math.sqrt((player.x - asteroid.x) * (player.x - asteroid.x) + (player.y - asteroid.y) * (player.y - asteroid.y));
-    }
-
-    function intersect(player, asteroid) {
-        return dist(player, asteroid) < explosionRadius + asteroid.radius;
+    function finishExplosion() {
+        player.explosion = false;
+        context.width = context.width;
     }
 
     // Reset and start the game
@@ -173,22 +220,8 @@ $(document).ready(function() {
 
         // Set up asteroids out of view
         for (var i = 0; i < numAsteroids; i++) {
-            var radius = 5+(Math.random()*10);
-            var x = canvasWidth+radius+Math.floor(Math.random()*canvasWidth);
-            var y = Math.floor(Math.random()*canvasHeight);
-            var vX = -5-(Math.random()*5);
-
-            asteroids.push(new Asteroid(x, y, radius, vX));
+            asteroids.push(randomAsteroid());
         }
-
-        //for (var i = 0; i < numFuels; i++) {
-        //    var x = canvasWidth + fuelWidth + Math.floor(Math.random()*canvasWidth);
-        //    var y = Math.floor(Math.random() * canvasHeight);
-        //    var vX = - 5 - (Math.random()*5);
-        //    var vY = 5 + (Math.random()*5);
-        //
-        //    fuels.push(new Fuel(x, y, fuelWidth, vX, vY));
-        //}
 
         //document.addEventListener("keyup", function, false);
         // Set up keyboard event listeners
@@ -228,7 +261,7 @@ $(document).ready(function() {
                 player.explosion = true;
                 uiBombs.html(myBombs);
 
-                var leftAsteroids = Array();
+                var leftAsteroids = new Array();
                 for(var i in asteroids) {
                     if(!intersect(player, asteroids[i])) {
                         leftAsteroids.push(asteroids[i]);
@@ -301,8 +334,6 @@ $(document).ready(function() {
         }
     }
 
-
-
     // Animation loop that does all the fun stuff
     function animate() {
         // Clear
@@ -356,68 +387,8 @@ $(document).ready(function() {
 
             }
 
-            context.fillStyle = "rgb(255, 255, 255)";
-            context.beginPath();
-            context.arc(tmpAsteroid.x, tmpAsteroid.y, tmpAsteroid.radius, 0, Math.PI*2, true);
-            context.closePath();
-            context.fill();
+            circle(tmpAsteroid.x, tmpAsteroid.y, tmpAsteroid.radius, "rgb(255, 255, 255)");
         }
-
-
-        // Loop through every fuel
-        //var fuelsLength = fuels.length;
-        //for (var i = 0; i < fuelsLength; i++) {
-        //    var tmpFuel = fuels[i];
-        //
-        //    // Calculate new position
-        //    tmpFuel.x += tmpFuel.vX;
-        //    tmpFuel.y += tmpFuel.vY;
-        //    tmpFuel.vrtMoves += 1;
-        //    // Change vertical orientation
-        //    if(tmpFuel.vrtMoves === tmpFuel.maxVrtMoves){
-        //        tmpFuel.vrtMoves = 0;
-        //        tmpFuel.vY = -tmpFuel.vY;
-        //    }
-        //
-        //    // Check to see if you need to reset the fuel
-        //    if (tmpFuel.x + tmpFuel.fuelWidth < 0) {
-        //        tmpFuel.x = canvasWidth + tmpFuel.fuelWidth;
-        //        tmpFuel.y = Math.floor(Math.random()*canvasHeight);
-        //        tmpFuel.vX = -5-(Math.random()*5);
-        //    }
-        //
-        //    if (tmpFuel.y + tmpFuel.fuelWidth < 0 || tmpFuel.y + tmpFuel.fuelWidth > canvasHeight) {
-        //        tmpFuel.x = canvasWidth + tmpFuel.fuelWidth + Math.floor(Math.random()*canvasWidth);
-        //        tmpFuel.y = Math.floor(Math.random() * canvasHeight);
-        //        tmpFuel.vX = - 5 - (Math.random()*5);
-        //        tmpFuel.vY = 5 + (Math.random()*5);
-        //    }
-        //
-        //    // Player to fuel collision detection
-        //    var dX = player.x - tmpFuel.x;
-        //    var dY = player.y - tmpFuel.y;
-        //    var distance = Math.sqrt((dX*dX)+(dY*dY));
-        //
-        //    if (distance < player.halfWidth + tmpFuel.fuelWidth) {
-        //
-        //        tmpFuel.x = canvasWidth + tmpFuel.fuelWidth + Math.floor(Math.random()*canvasWidth);
-        //        tmpFuel.y = Math.floor(Math.random() * canvasHeight);
-        //        tmpFuel.vX = - 5 - (Math.random()*5);
-        //        tmpFuel.vY = 5 + (Math.random()*5);
-        //
-        //        // Stop thrust sound
-        //        soundThrust.pause();
-        //        score += 100;
-        //
-        //        // Play death sound
-        //        soundDeath.currentTime = 0;
-        //        soundDeath.play();
-        //
-        //    }
-        //
-        //    //context.fillStyle = '#0a0';
-        //    //context.fillRect(tmpFuel.x, tmpFuel.y, tmpFuel.fuelWidth, tmpFuel.fuelWidth);
-        //}
 
         // Update player
         player.vX = 0;
@@ -453,43 +424,7 @@ $(document).ready(function() {
             player.y = canvasHeight-20-player.halfHeight;
         }
 
-        // Draw player
-        if (player.moveRight) {
-            context.save();
-            context.translate(player.x, player.y);
-
-            if (player.flameLength == 20) {
-                player.flameLength = 15;
-            } else {
-                player.flameLength = 20;
-            }
-
-            context.fillStyle = "orange";
-            context.beginPath();
-            context.moveTo(-12-player.flameLength, 0);
-            context.lineTo(0, -5);
-            context.lineTo(0, 5);
-            context.closePath();
-            context.fill();
-
-            context.restore();
-        }
-
-        context.fillStyle = "rgb(255, 0, 0)";
-        context.beginPath();
-        context.moveTo(player.x+player.halfWidth, player.y);
-        context.lineTo(player.x-player.halfWidth, player.y-player.halfHeight);
-        context.lineTo(player.x-player.halfWidth, player.y+player.halfHeight);
-        context.closePath();
-        context.fill();
-
-        if(player.explosion) {
-            //player.explosionDuration += 33;
-            //if(player.explosionDuration < EXPLOSION_TIME) {
-            circle(player.x, player.y, explosionRadius, 'orange');
-            //}
-            setTimeout(finishExplosion, 250);
-        }
+        player.draw();
 
         // Add any new asteroids
         while (asteroids.length < numAsteroids) {
@@ -504,7 +439,7 @@ $(document).ready(function() {
         if(bombs.length < maxBombsOnScreen) {
             bombs.push(randomBomb(minSide, maxSide));
         }
-        var tmpBombs = Array();
+        var tmpBombs = new Array();
         for(var b in bombs) {
             bombs[b].draw();
             bombs[b].move();
@@ -514,17 +449,12 @@ $(document).ready(function() {
         }
         bombs = tmpBombs;
 
-        colision();
+        player.colisionWithBombs();
 
         if (playGame) {
             // Run the animation loop again in 33 milliseconds
             setTimeout(animate, 33);
         }
-    }
-
-    function finishExplosion() {
-        player.explosion = false;
-        context.width = context.width;
     }
 
     init();
